@@ -1,0 +1,139 @@
+---
+title: "Caderno de estudo"
+output:
+  html_document:
+    df_print: paged
+---
+#Library
+```{r Library, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(plotly)
+library(magrittr)
+library(car)
+library(Hmisc)
+library(nortest)
+library(corrplot)
+```
+
+#Wrangling
+```{r Wrangling, message=FALSE, warning=FALSE, include=FALSE}
+lol12_4<-read.csv(file="D:/Users/Bichon/Documents/Data Science e Analytics/League of Legends 2/leagueoflegends/12.4/Champion Stats - OraclesElixir.csv", sep=";")
+
+lol12_4 <- rename(lol12_4,
+                  champ = 1,
+                  class = 2,
+                  role = 3,
+                  tier = 4,
+                  score = 5,
+                  trend = 6,
+                  win = 7,
+                  role_rate = 8,
+                  pick = 9,
+                  ban = 10,
+                  kda = 11,
+                  region = 12)
+
+lol12_4$tier <- factor(lol12_4$tier, levels = c("D", "C","B", "A", "S", "God"),
+                       labels = c("D", "C","B", "A", "S", "God"))
+
+lol_region <- lol12_4 %>% dplyr::group_by(region) %>%
+  summarise(observações=n(),
+            media=mean(win),
+            mediana=median(win),
+            desv_pad=sd(win),
+            mínimo=min(win),
+            máximo=max(win),
+            quartil_3=quantile(win, type=5, 0.75))
+
+lol_tier <- lol12_4 %>% dplyr::group_by(tier) %>%
+  summarise(observações=n(),
+            media=mean(win),
+            mediana=median(win),
+            desv_pad=sd(win),
+            mínimo=min(win),
+            máximo=max(win),
+            quartil_3=quantile(win, type=5, 0.75))
+
+lol_num <- lol12_4[,5:11]
+```
+
+#Estatísticas
+
+```{r Normalidade, echo=FALSE, message=FALSE, warning=FALSE}
+shapiro.test(lol12_4$win) #Shapiro-Wilk
+ks.test(lol12_4$win, "pnorm", 
+        mean(lol12_4$win), sd(lol12_4$win), exact = TRUE) #Kolmogorov-Smirnov
+ad.test(lol12_4$win) #Anderson-Darling
+cvm.test(lol12_4$win) #Cramer-VonMises
+```
+```{r Análise de dados Paramétricos, echo=FALSE, message=FALSE, warning=FALSE}
+# ANOVA
+aov_win_region <- aov(lol12_4$win ~ lol12_4$region) #Win x Região
+summary(aov_win_region)
+aov_win_tier <- aov(lol12_4$win ~lol12_4$tier) #Win x Tier
+summary(aov_win_tier)
+
+# Tukey
+tukey_region<-TukeyHSD(aov_win_region)
+tukey_tier<-TukeyHSD(aov_win_tier)
+```
+
+```{r Análise de dados não paramétricos, echo=FALSE, message=FALSE, warning=FALSE}
+# Tukey
+kruskal.test(win ~ region, data = lol12_4) #Win x Região
+```
+
+#Matrizes de correlação
+
+```{r Correlação, echo=FALSE, message=FALSE, warning=FALSE}
+tukey_tier<-TukeyHSD(aov_win_tier)
+plot(tukey_tier, las = 1)
+
+lol_cor<-cor(lol_num)
+corrplot(lol_cor, type = "lower",method = "number")
+```
+
+#Plotagem
+
+```{r Quantis de Win Rate por Região, echo=FALSE, warning=FALSE}
+plot_ly(data = lol12_4, x= ~region, y = ~win,
+        type = 'box', quartilemethod='inclusive',
+        text = ~paste('Campeão: ',champ,'</br>Classe: ', class))
+```
+```{r Quantis de Win Rate por Tier, echo=FALSE, warning=FALSE}
+plot_ly(data = lol12_4, x= ~tier, y = ~win,
+        type = 'box', quartilemethod='inclusive',
+        text = ~paste('Campeão: ',champ,'</br>Classe: ', class))
+```
+```{r Win Rate/Região, echo=FALSE}
+plot_ly(data = lol12_4, x = ~win, y = ~region, 
+        text = ~paste('Campeão: ',champ, '</br>Classe: ',class, '</br> KDA',kda), 
+        type = 'scatter', 
+        mode = 'markers', 
+        color = ~role, 
+        marker = list(size = ~pick, opacity = 1)
+)
+```
+```{r Win Rate/Tier, echo=FALSE}
+plot_ly(data = lol12_4, x = ~win, y = ~tier, 
+        text = ~paste('Campeão: ',champ, '</br>Classe: ',class, '</br> KDA',kda), 
+        type = 'scatter', 
+        mode = 'markers', 
+        color = ~role, 
+        marker = list(size = ~pick, opacity = 1)
+)
+```
+```{r Scatter Win Rate x Região, echo=FALSE, warning=FALSE}
+lol_region %>% ggplot() +
+  geom_point(mapping = aes(x=media, y=region))
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
